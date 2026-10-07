@@ -49,6 +49,7 @@ int create_command(char *input, Message *msg)
 {
     char command[20];
     char option[20];
+    int value;
     int address;
 
     memset(msg, 0, sizeof(Message));
