@@ -1,0 +1,3 @@
+*.o
+deadlock_sim
+test_integration
