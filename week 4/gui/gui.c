@@ -40,7 +40,6 @@ static void log_action(Gui *g, const char *message)
     buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(g->log_view));
     gtk_text_buffer_get_end_iter(buffer, &end);
     gtk_text_buffer_insert(buffer, &end, message, -1);
-    gtk_text_buffer.insert;
     gtk_text_buffer_insert(buffer, &end, "\n", 1);
 }
 

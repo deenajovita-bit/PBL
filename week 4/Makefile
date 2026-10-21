@@ -2,7 +2,7 @@
 
 CC      = gcc
 CFLAGS  = -I. -Wall -Wextra -std=c99 $(shell pkg-config --cflags gtk+-3.0)
-LIBS    = $(shell pkg-config --libs gtk+-3.0)
+LIBS    = $(shell pkg-config --libs gtk+-3.0) -lm
 
 SRC = main.c \
       banker/banker.c \
