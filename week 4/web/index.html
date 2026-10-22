@@ -1,1 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Deadlock Lab | OS Simulator</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <h2>◈ DEADLOCK LAB</h2>
+    <p class="muted">OPERATING SYSTEM SIMULATOR</p>
 
+    <nav>
+      <a class="active" href="#dashboard">▦ Dashboard</a>
+      <a href="#resources">▣ Resources</a>
+      <a href="#graph">⌘ Allocation Graph</a>
+      <a href="#banker">◈ Banker's Algorithm</a>
+      <a href="#detection">⚠ Deadlock Detection</a>
+      <a href="#recovery">↻ Recovery</a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <span class="status-dot"></span> Interface ready
+      <p class="muted">C-based simulation project</p>
+    </div>
+  </aside>
+
+  <main>
+    <header>
+      <div>
+        <p class="muted">OPERATING SYSTEMS / SIMULATION</p>
+        <h1>Deadlock Simulation Dashboard</h1>
+        <p class="muted">Explore resource allocation, safe states and deadlock recovery.</p>
+      </div>
+      <span class="pill">● SYSTEM READY</span>
+    </header>
+
+    <section class="stats" id="dashboard">
+      <article class="card">
+        <p class="muted">Processes</p>
+        <h2 id="process-count">5</h2>
+        <span class="accent">Active simulation</span>
+      </article>
+      <article class="card">
+        <p class="muted">Resource Types</p>
+        <h2 id="resource-count">3</h2>
+        <span class="accent">Available to allocate</span>
+      </article>
+      <article class="card">
+        <p class="muted">System State</p>
+        <h2 class="safe" id="system-state">Not tested</h2>
+        <span class="muted">Run a safety check</span>
+      </article>
+    </section>
+
+    <section class="card section" id="resources">
+      <div class="section-heading">
+        <div>
+          <h2>Resource Allocation</h2>
+          <p class="muted">Example data for the interface preview</p>
+        </div>
+        <button id="check-safe">Check safe state</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Process</th><th>Allocated</th><th>Maximum</th><th>Remaining Need</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>P0</td><td>0, 1, 0</td><td>7, 5, 3</td><td>7, 4, 3</td></tr>
+            <tr><td>P1</td><td>2, 0, 0</td><td>3, 2, 2</td><td>1, 2, 2</td></tr>
+            <tr><td>P2</td><td>3, 0, 2</td><td>9, 0, 2</td><td>6, 0, 0</td></tr>
+            <tr><td>P3</td><td>2, 1, 1</td><td>2, 2, 2</td><td>0, 1, 1</td></tr>
+            <tr><td>P4</td><td>0, 0, 2</td><td>4, 3, 3</td><td>4, 3, 1</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="safety-result" class="result" aria-live="polite">
+        Run the safety check to view a result.
+      </div>
+    </section>
+
+    <section class="grid-panels">
+      <article class="card section" id="graph">
+        <h2>Resource Allocation Graph</h2>
+        <p class="muted">Graph visualization area</p>
+        <div class="graph-placeholder">
+          <div class="node process-node">P1</div>
+          <div class="graph-arrow">→</div>
+          <div class="node resource-node">R1</div>
+          <p class="muted">The live graph will be connected to simulation data later.</p>
+        </div>
+      </article>
+
+      <article class="card section" id="banker">
+        <h2>Banker's Algorithm</h2>
+        <p class="muted">Check whether resource allocation can leave the system in a safe state.</p>
+        <button id="banker-check">Run safety algorithm</button>
+        <p id="banker-result" class="result" aria-live="polite">Waiting for input.</p>
+      </article>
+
+      <article class="card section" id="detection">
+        <h2>Deadlock Detection</h2>
+        <p class="muted">Inspect resource allocation and identify processes that may be blocked.</p>
+        <button id="detect-button" class="secondary">Run detection</button>
+        <p id="detection-result" class="result" aria-live="polite">Detection has not been run.</p>
+      </article>
+
+      <article class="card section" id="recovery">
+        <h2>Deadlock Recovery</h2>
+        <p class="muted">Recovery actions will be connected to the C simulation backend.</p>
+        <button id="recovery-button" class="secondary">Preview recovery</button>
+        <p id="recovery-result" class="result" aria-live="polite">No recovery action performed.</p>
+      </article>
+    </section>
+
+    <footer>Deadlock Lab · Interactive Operating Systems Project · C simulation backend pending</footer>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
