@@ -3,121 +3,758 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Deadlock Lab | OS Simulator</title>
+  <title>Deadlock Simulation System</title>
   <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
-  <aside class="sidebar">
-    <h2>◈ DEADLOCK LAB</h2>
-    <p class="muted">OPERATING SYSTEM SIMULATOR</p>
 
-    <nav>
-      <a class="active" href="#dashboard">▦ Dashboard</a>
-      <a href="#resources">▣ Resources</a>
-      <a href="#graph">⌘ Allocation Graph</a>
-      <a href="#banker">◈ Banker's Algorithm</a>
-      <a href="#detection">⚠ Deadlock Detection</a>
-      <a href="#recovery">↻ Recovery</a>
-    </nav>
-
-    <div class="sidebar-footer">
-      <span class="status-dot"></span> Interface ready
-      <p class="muted">C-based simulation project</p>
+  <!-- ================= HEADER ================= -->
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">OPERATING SYSTEMS · WEEK 4 PROJECT</p>
+      <h1>Deadlock Simulation System</h1>
+      <p class="subtitle">
+        Interactive resource allocation, deadlock avoidance, detection and recovery
+      </p>
     </div>
-  </aside>
 
-  <main>
-    <header>
-      <div>
-        <p class="muted">OPERATING SYSTEMS / SIMULATION</p>
-        <h1>Deadlock Simulation Dashboard</h1>
-        <p class="muted">Explore resource allocation, safe states and deadlock recovery.</p>
-      </div>
-      <span class="pill">● SYSTEM READY</span>
-    </header>
+    <div id="stateBadge" class="state-badge neutral">
+      ● NOT TESTED
+    </div>
+  </header>
 
-    <section class="stats" id="dashboard">
-      <article class="card">
-        <p class="muted">Processes</p>
-        <h2 id="process-count">5</h2>
-        <span class="accent">Active simulation</span>
-      </article>
-      <article class="card">
-        <p class="muted">Resource Types</p>
-        <h2 id="resource-count">3</h2>
-        <span class="accent">Available to allocate</span>
-      </article>
-      <article class="card">
-        <p class="muted">System State</p>
-        <h2 class="safe" id="system-state">Not tested</h2>
-        <span class="muted">Run a safety check</span>
-      </article>
+  <main class="container">
+
+    <!-- ================= STATUS MESSAGE ================= -->
+    <section id="statusBanner" class="status-banner neutral">
+      <strong id="statusTitle">System ready</strong>
+      <span id="statusMessage">
+        Configure the system or load an example to begin.
+      </span>
     </section>
 
-    <section class="card section" id="resources">
-      <div class="section-heading">
+
+    <!-- ================= MAIN CONTROLS ================= -->
+    <section class="control-grid">
+
+      <!-- SETUP PANEL -->
+      <article class="panel">
+        <div class="panel-heading">
+          <div>
+            <p class="section-label">CONFIGURATION</p>
+            <h2>Set Up the System</h2>
+          </div>
+        </div>
+
+        <div class="setup-row">
+
+          <label>
+            Processes
+            <input
+              type="number"
+              id="processCount"
+              min="1"
+              max="10"
+              value="5"
+            >
+          </label>
+
+          <label>
+            Resource Types
+            <input
+              type="number"
+              id="resourceCount"
+              min="1"
+              max="10"
+              value="3"
+            >
+          </label>
+
+          <button id="createSystem" class="primary">
+            Create System
+          </button>
+
+        </div>
+
+
+        <div class="preset-area">
+          <span class="small-label">LOAD AN EXAMPLE</span>
+
+          <div class="preset-buttons">
+            <button id="safeExample" class="outline success">
+              Safe State
+            </button>
+
+            <button id="unsafeExample" class="outline warning">
+              Unsafe State
+            </button>
+
+            <button id="deadlockExample" class="outline danger">
+              Deadlock
+            </button>
+
+            <button id="resetSystem" class="outline">
+              Reset
+            </button>
+          </div>
+        </div>
+
+
+        <!-- RESOURCE VECTOR -->
+        <div class="resource-vector">
+
+          <h3>Resource Vectors</h3>
+
+          <div class="table-wrap">
+
+            <table id="resourceVectorTable">
+
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>R0</th>
+                  <th>R1</th>
+                  <th>R2</th>
+                </tr>
+              </thead>
+
+              <tbody>
+
+                <tr>
+                  <th>Total</th>
+
+                  <td>
+                    <input class="matrix-input" id="totalR0"
+                           type="number" min="0" value="10">
+                  </td>
+
+                  <td>
+                    <input class="matrix-input" id="totalR1"
+                           type="number" min="0" value="5">
+                  </td>
+
+                  <td>
+                    <input class="matrix-input" id="totalR2"
+                           type="number" min="0" value="7">
+                  </td>
+                </tr>
+
+                <tr>
+                  <th>Available</th>
+
+                  <td id="availableR0">3</td>
+                  <td id="availableR1">3</td>
+                  <td id="availableR2">2</td>
+                </tr>
+
+              </tbody>
+
+            </table>
+
+          </div>
+
+        </div>
+
+      </article>
+
+
+      <!-- ALGORITHM PANEL -->
+      <article class="panel">
+
+        <div class="panel-heading">
+          <div>
+            <p class="section-label">SIMULATION</p>
+            <h2>Run the Algorithms</h2>
+          </div>
+        </div>
+
+
+        <!-- REQUEST RESOURCE -->
+        <div class="algorithm-block">
+
+          <h3>Request Resources</h3>
+
+          <div class="request-row">
+
+            <label>
+              Process
+
+              <select id="requestProcess">
+                <option value="0">P0</option>
+                <option value="1">P1</option>
+                <option value="2">P2</option>
+                <option value="3">P3</option>
+                <option value="4">P4</option>
+              </select>
+
+            </label>
+
+
+            <label>
+              R0
+              <input id="requestR0"
+                     type="number"
+                     min="0"
+                     value="0">
+            </label>
+
+
+            <label>
+              R1
+              <input id="requestR1"
+                     type="number"
+                     min="0"
+                     value="0">
+            </label>
+
+
+            <label>
+              R2
+              <input id="requestR2"
+                     type="number"
+                     min="0"
+                     value="0">
+            </label>
+
+          </div>
+
+
+          <label class="mode-label">
+            Request Mode
+
+            <select id="requestMode">
+              <option value="banker">
+                Banker's Avoidance
+              </option>
+
+              <option value="direct">
+                Direct Allocation
+              </option>
+            </select>
+
+          </label>
+
+
+          <button id="sendRequest" class="primary full-width">
+            Send Resource Request
+          </button>
+
+          <div id="requestResult" class="mini-result">
+            No resource request submitted.
+          </div>
+
+        </div>
+
+
+        <!-- ANALYSIS -->
+        <div class="algorithm-block">
+
+          <h3>Analyse System</h3>
+
+          <div class="action-buttons">
+
+            <button id="runBanker" class="primary">
+              Run Banker's Algorithm
+            </button>
+
+            <button id="detectDeadlock" class="secondary">
+              Detect Deadlock
+            </button>
+
+          </div>
+
+        </div>
+
+
+        <!-- RECOVERY -->
+        <div class="algorithm-block">
+
+          <h3>Deadlock Recovery</h3>
+
+          <div class="action-buttons">
+
+            <button id="terminateProcess" class="danger-btn">
+              Terminate Process
+            </button>
+
+            <button id="preemptResources" class="danger-btn">
+              Preempt Resources
+            </button>
+
+          </div>
+
+        </div>
+
+      </article>
+
+    </section>
+
+
+
+    <!-- ================= MATRICES ================= -->
+
+    <section class="panel matrix-panel">
+
+      <div class="panel-heading">
+
         <div>
-          <h2>Resource Allocation</h2>
-          <p class="muted">Example data for the interface preview</p>
+          <p class="section-label">CURRENT SYSTEM STATE</p>
+          <h2>Allocation, Maximum, Need & Requests</h2>
         </div>
-        <button id="check-safe">Check safe state</button>
+
+        <span class="hint">
+          Need = Maximum − Allocation
+        </span>
+
       </div>
+
+
       <div class="table-wrap">
-        <table>
+
+        <table id="matrixTable">
+
           <thead>
-            <tr><th>Process</th><th>Allocated</th><th>Maximum</th><th>Remaining Need</th></tr>
+
+            <tr>
+
+              <th rowspan="2">Process</th>
+
+              <th colspan="3">Allocation</th>
+
+              <th colspan="3">Maximum</th>
+
+              <th colspan="3">Need</th>
+
+              <th colspan="3">Pending Request</th>
+
+            </tr>
+
+            <tr>
+
+              <th>R0</th>
+              <th>R1</th>
+              <th>R2</th>
+
+              <th>R0</th>
+              <th>R1</th>
+              <th>R2</th>
+
+              <th>R0</th>
+              <th>R1</th>
+              <th>R2</th>
+
+              <th>R0</th>
+              <th>R1</th>
+              <th>R2</th>
+
+            </tr>
+
           </thead>
-          <tbody>
-            <tr><td>P0</td><td>0, 1, 0</td><td>7, 5, 3</td><td>7, 4, 3</td></tr>
-            <tr><td>P1</td><td>2, 0, 0</td><td>3, 2, 2</td><td>1, 2, 2</td></tr>
-            <tr><td>P2</td><td>3, 0, 2</td><td>9, 0, 2</td><td>6, 0, 0</td></tr>
-            <tr><td>P3</td><td>2, 1, 1</td><td>2, 2, 2</td><td>0, 1, 1</td></tr>
-            <tr><td>P4</td><td>0, 0, 2</td><td>4, 3, 3</td><td>4, 3, 1</td></tr>
+
+
+          <tbody id="matrixBody">
+
+            <!-- P0 -->
+            <tr>
+
+              <th>P0</th>
+
+              <td><input class="matrix-input allocation" value="0"></td>
+              <td><input class="matrix-input allocation" value="1"></td>
+              <td><input class="matrix-input allocation" value="0"></td>
+
+              <td><input class="matrix-input maximum" value="7"></td>
+              <td><input class="matrix-input maximum" value="5"></td>
+              <td><input class="matrix-input maximum" value="3"></td>
+
+              <td class="need">7</td>
+              <td class="need">4</td>
+              <td class="need">3</td>
+
+              <td class="pending">0</td>
+              <td class="pending">0</td>
+              <td class="pending">0</td>
+
+            </tr>
+
+
+            <!-- P1 -->
+            <tr>
+
+              <th>P1</th>
+
+              <td><input class="matrix-input allocation" value="2"></td>
+              <td><input class="matrix-input allocation" value="0"></td>
+              <td><input class="matrix-input allocation" value="0"></td>
+
+              <td><input class="matrix-input maximum" value="3"></td>
+              <td><input class="matrix-input maximum" value="2"></td>
+              <td><input class="matrix-input maximum" value="2"></td>
+
+              <td class="need">1</td>
+              <td class="need">2</td>
+              <td class="need">2</td>
+
+              <td class="pending">0</td>
+              <td class="pending">0</td>
+              <td class="pending">0</td>
+
+            </tr>
+
+
+            <!-- P2 -->
+            <tr>
+
+              <th>P2</th>
+
+              <td><input class="matrix-input allocation" value="3"></td>
+              <td><input class="matrix-input allocation" value="0"></td>
+              <td><input class="matrix-input allocation" value="2"></td>
+
+              <td><input class="matrix-input maximum" value="9"></td>
+              <td><input class="matrix-input maximum" value="0"></td>
+              <td><input class="matrix-input maximum" value="2"></td>
+
+              <td class="need">6</td>
+              <td class="need">0</td>
+              <td class="need">0</td>
+
+              <td class="pending">0</td>
+              <td class="pending">0</td>
+              <td class="pending">0</td>
+
+            </tr>
+
+
+            <!-- P3 -->
+            <tr>
+
+              <th>P3</th>
+
+              <td><input class="matrix-input allocation" value="2"></td>
+              <td><input class="matrix-input allocation" value="1"></td>
+              <td><input class="matrix-input allocation" value="1"></td>
+
+              <td><input class="matrix-input maximum" value="2"></td>
+              <td><input class="matrix-input maximum" value="2"></td>
+              <td><input class="matrix-input maximum" value="2"></td>
+
+              <td class="need">0</td>
+              <td class="need">1</td>
+              <td class="need">1</td>
+
+              <td class="pending">0</td>
+              <td class="pending">0</td>
+              <td class="pending">0</td>
+
+            </tr>
+
+
+            <!-- P4 -->
+            <tr>
+
+              <th>P4</th>
+
+              <td><input class="matrix-input allocation" value="0"></td>
+              <td><input class="matrix-input allocation" value="0"></td>
+              <td><input class="matrix-input allocation" value="2"></td>
+
+              <td><input class="matrix-input maximum" value="4"></td>
+              <td><input class="matrix-input maximum" value="3"></td>
+              <td><input class="matrix-input maximum" value="3"></td>
+
+              <td class="need">4</td>
+              <td class="need">3</td>
+              <td class="need">1</td>
+
+              <td class="pending">0</td>
+              <td class="pending">0</td>
+              <td class="pending">0</td>
+
+            </tr>
+
           </tbody>
+
         </table>
+
       </div>
-      <div id="safety-result" class="result" aria-live="polite">
-        Run the safety check to view a result.
-      </div>
+
     </section>
 
-    <section class="grid-panels">
-      <article class="card section" id="graph">
-        <h2>Resource Allocation Graph</h2>
-        <p class="muted">Graph visualization area</p>
-        <div class="graph-placeholder">
-          <div class="node process-node">P1</div>
-          <div class="graph-arrow">→</div>
-          <div class="node resource-node">R1</div>
-          <p class="muted">The live graph will be connected to simulation data later.</p>
+
+
+    <!-- ================= RESULT PANELS ================= -->
+
+    <section class="results-grid">
+
+
+      <!-- BANKER RESULT -->
+      <article class="panel">
+
+        <p class="section-label">BANKER'S ALGORITHM</p>
+
+        <h2>Safe Sequence</h2>
+
+        <div id="safeSequence" class="sequence">
+
+          <span>?</span>
+          <b>→</b>
+          <span>?</span>
+          <b>→</b>
+          <span>?</span>
+
         </div>
+
+        <p id="bankerResult" class="result-text">
+          Run Banker's Algorithm to analyse the current state.
+        </p>
+
       </article>
 
-      <article class="card section" id="banker">
-        <h2>Banker's Algorithm</h2>
-        <p class="muted">Check whether resource allocation can leave the system in a safe state.</p>
-        <button id="banker-check">Run safety algorithm</button>
-        <p id="banker-result" class="result" aria-live="polite">Waiting for input.</p>
+
+
+      <!-- DEADLOCK -->
+      <article class="panel">
+
+        <p class="section-label">DEADLOCK DETECTION</p>
+
+        <h2>Detection Result</h2>
+
+        <div id="deadlockIcon" class="large-icon">
+          ?
+        </div>
+
+        <p id="deadlockResult" class="result-text">
+          Deadlock detection has not been run.
+        </p>
+
+        <div id="deadlockedProcesses"
+             class="process-tags">
+        </div>
+
       </article>
 
-      <article class="card section" id="detection">
-        <h2>Deadlock Detection</h2>
-        <p class="muted">Inspect resource allocation and identify processes that may be blocked.</p>
-        <button id="detect-button" class="secondary">Run detection</button>
-        <p id="detection-result" class="result" aria-live="polite">Detection has not been run.</p>
-      </article>
-
-      <article class="card section" id="recovery">
-        <h2>Deadlock Recovery</h2>
-        <p class="muted">Recovery actions will be connected to the C simulation backend.</p>
-        <button id="recovery-button" class="secondary">Preview recovery</button>
-        <p id="recovery-result" class="result" aria-live="polite">No recovery action performed.</p>
-      </article>
     </section>
 
-    <footer>Deadlock Lab · Interactive Operating Systems Project · C simulation backend pending</footer>
+
+
+    <!-- ================= RAG ================= -->
+
+    <section class="panel">
+
+      <div class="panel-heading">
+
+        <div>
+          <p class="section-label">VISUALIZATION</p>
+          <h2>Resource Allocation Graph</h2>
+        </div>
+
+        <button id="refreshGraph"
+                class="secondary">
+          Refresh Graph
+        </button>
+
+      </div>
+
+
+      <div id="ragCanvas" class="rag-canvas">
+
+        <svg id="ragLines"
+             class="rag-lines">
+        </svg>
+
+
+        <div class="rag-processes">
+
+          <div class="process-node" id="graphP0">P0</div>
+          <div class="process-node" id="graphP1">P1</div>
+          <div class="process-node" id="graphP2">P2</div>
+          <div class="process-node" id="graphP3">P3</div>
+          <div class="process-node" id="graphP4">P4</div>
+
+        </div>
+
+
+        <div class="rag-resources">
+
+          <div class="resource-node" id="graphR0">
+            R0
+            <small>Resource</small>
+          </div>
+
+          <div class="resource-node" id="graphR1">
+            R1
+            <small>Resource</small>
+          </div>
+
+          <div class="resource-node" id="graphR2">
+            R2
+            <small>Resource</small>
+          </div>
+
+        </div>
+
+      </div>
+
+
+      <div class="graph-legend">
+
+        <span>
+          <i class="legend-process"></i>
+          Process
+        </span>
+
+        <span>
+          <i class="legend-resource"></i>
+          Resource
+        </span>
+
+        <span>
+          → Allocation / Request
+        </span>
+
+      </div>
+
+    </section>
+
+
+
+    <!-- ================= RESOURCE UTILIZATION ================= -->
+
+    <section class="panel">
+
+      <div class="panel-heading">
+
+        <div>
+          <p class="section-label">ANALYSIS</p>
+          <h2>Resource Utilization</h2>
+        </div>
+
+      </div>
+
+
+      <div class="utilization-grid">
+
+
+        <div class="utilization-item">
+
+          <div class="utilization-label">
+            <span>R0</span>
+            <span id="r0Percent">70%</span>
+          </div>
+
+          <div class="progress">
+            <div id="r0Bar"
+                 class="progress-bar"
+                 style="width:70%">
+            </div>
+          </div>
+
+        </div>
+
+
+        <div class="utilization-item">
+
+          <div class="utilization-label">
+            <span>R1</span>
+            <span id="r1Percent">40%</span>
+          </div>
+
+          <div class="progress">
+            <div id="r1Bar"
+                 class="progress-bar"
+                 style="width:40%">
+            </div>
+          </div>
+
+        </div>
+
+
+        <div class="utilization-item">
+
+          <div class="utilization-label">
+            <span>R2</span>
+            <span id="r2Percent">71%</span>
+          </div>
+
+          <div class="progress">
+            <div id="r2Bar"
+                 class="progress-bar"
+                 style="width:71%">
+            </div>
+          </div>
+
+        </div>
+
+
+      </div>
+
+    </section>
+
+
+    <!-- ================= CONCEPT INFO ================= -->
+
+    <section class="panel concept-panel">
+
+      <div>
+
+        <p class="section-label">
+          DEADLOCK CONDITIONS
+        </p>
+
+        <h2>Four Necessary Conditions</h2>
+
+      </div>
+
+
+      <div class="conditions">
+
+        <div>
+          <strong>01</strong>
+          <span>Mutual Exclusion</span>
+        </div>
+
+        <div>
+          <strong>02</strong>
+          <span>Hold and Wait</span>
+        </div>
+
+        <div>
+          <strong>03</strong>
+          <span>No Preemption</span>
+        </div>
+
+        <div>
+          <strong>04</strong>
+          <span>Circular Wait</span>
+        </div>
+
+      </div>
+
+    </section>
+
   </main>
 
+
+  <footer class="footer">
+
+    <span>
+      Deadlock Simulation System
+    </span>
+
+    <span>
+      Operating Systems · Week 4
+    </span>
+
+    <span id="backendStatus">
+      ● C Backend
+    </span>
+
+  </footer>
+
+
   <script src="script.js"></script>
+
 </body>
 </html>

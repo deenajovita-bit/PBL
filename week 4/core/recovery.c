@@ -97,3 +97,74 @@ void recover_terminate(System *s, int p)
         }
     } while (changed);
 }
+/*
+ * Preempt resources from process p.
+ *
+ * Unlike termination:
+ * - process p stays active
+ * - its currently allocated resources are returned
+ * - its allocation becomes zero
+ * - its need is recalculated
+ *
+ * Returns:
+ *   1 = resources were preempted
+ *   0 = nothing could be preempted
+ */
+int recover_preempt(System *s, int p)
+{
+    int j;
+    int released = 0;
+
+    if (s == NULL || p < 0 || p >= s->n) {
+        return 0;
+    }
+
+    if (!s->active[p]) {
+        return 0;
+    }
+
+    /*
+     * Return all resources held by
+     * this process to Available.
+     */
+    for (j = 0; j < s->m; j++) {
+
+        if (s->alloc[p][j] > 0) {
+
+            s->available[j] +=
+                s->alloc[p][j];
+
+            released +=
+                s->alloc[p][j];
+
+            s->alloc[p][j] = 0;
+        }
+    }
+
+    /*
+     * Process is NOT terminated.
+     * Recalculate its remaining need.
+     */
+    for (j = 0; j < s->m; j++) {
+
+        s->need[p][j] =
+            s->max[p][j] -
+            s->alloc[p][j];
+
+        if (s->need[p][j] < 0) {
+            s->need[p][j] = 0;
+        }
+    }
+
+    /*
+     * Clear the old pending request.
+     * The process can request resources
+     * again later.
+     */
+    for (j = 0; j < s->m; j++) {
+
+        s->request[p][j] = 0;
+    }
+
+    return released > 0;
+}
