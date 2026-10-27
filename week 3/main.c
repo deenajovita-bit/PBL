@@ -1,7 +1,3 @@
-<<<<<<< HEAD
-
-=======
->>>>>>> 0ed89b9 (Integrate process scheduling simulator)
 #include <stdio.h>
 #include <stdlib.h>
 #include "scheduler.h"
