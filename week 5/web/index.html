@@ -1,1 +1,34 @@
 
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Page Replacement Simulator</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h2>Page Replacement Simulator</h2>
+
+  Reference string: <input id="refs" size="35" value="7 0 1 2 0 3 0 4 2 3"><br>
+  Frames: <input id="frames" type="number" value="3" style="width:70px">
+  Algorithm:
+  <select id="algo">
+    <option value="0">FIFO</option>
+    <option value="1">LRU</option>
+    <option value="2">Optimal</option>
+    <option value="all" selected>Compare all</option>
+  </select>
+  <button id="run" disabled onclick="run()">Run</button>
+
+  <p id="error"></p>
+  <div id="output"></div>
+
+  <script>
+    var Module = { onRuntimeInitialized: function () {
+      document.getElementById("run").disabled = false;
+    }};
+  </script>
+  <script src="sim.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
