@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Page Replacement Simulator</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="container">
+    <header class="hero">
+      <div class="hero-icon" aria-hidden="true">▤</div>
+      <div>
+        <h1>Page Replacement Simulator</h1>
+        <p>Enter the reference string, select frames and algorithm to compare page replacement algorithms.</p>
+      </div>
+    </header>
+
+    <section class="controls" aria-label="Simulation inputs">
+      <label class="field field-refs" for="refs">
+        <span>Reference string:</span>
+        <input id="refs" type="text" value="7 0 1 2 0 3 0 4 2 3" placeholder="e.g. 7 0 1 2 0 3 0 4 2 3">
+      </label>
+      <label class="field field-frames" for="frames">
+        <span>Frames:</span>
+        <input id="frames" type="number" min="1" max="10" value="3">
+      </label>
+      <label class="field field-algo" for="algo">
+        <span>Algorithm:</span>
+        <select id="algo">
+          <option value="0">FIFO</option>
+          <option value="1">LRU</option>
+          <option value="2">Optimal</option>
+          <option value="all" selected>Compare all</option>
+        </select>
+      </label>
+      <button id="run" type="button" disabled onclick="run()"><span aria-hidden="true">▶</span> Run</button>
+    </section>
+
+    <p id="error" role="alert"></p>
+    <div id="output" aria-live="polite"></div>
+  </main>
+
+  <script>
+    var Module = {
+      onRuntimeInitialized: function () {
+        document.getElementById("run").disabled = false;
+        run();
+      },
+      onAbort: function (reason) {
+        document.getElementById("error").textContent = "Simulation engine failed to load: " + reason;
+      }
+    };
+  </script>
+  <script src="sim.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
