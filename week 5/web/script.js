@@ -46,6 +46,11 @@ function run() {
     return err.textContent = "Use only whole numbers (0 or more).";
   if (parts.length > 100) return err.textContent = "Maximum 100 pages.";
   const refs = parts.map(Number);
+  if (!refs.every(Number.isSafeInteger) ||
+    refs.some(p => p > 9999)) {
+  return err.textContent =
+    "Page numbers must be between 0 and 9999.";
+}
 
   // check the frames
   const fs = document.getElementById("frames").value;
