@@ -1,106 +1,131 @@
-body {
-  font-family: "Segoe UI", Arial, sans-serif;
-  max-width: 900px;
-  margin: 30px auto;
-  padding: 20px;
-  background: #f4f6fb;
-  color: #222;
-  line-height: 1.8;
+:root {
+  --ink: #1e3154;
+  --blue: #5079bf;
+  --border: #d9e1f1;
 }
-
-h2 {
-  text-align: center;
-  color: #2c3e9e;
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: #ffffff;
+  color: var(--ink);
+  font-family: Arial, Helvetica, sans-serif;
+  line-height: 1.45;
+}
+.container { max-width: 1420px; margin: 0 auto; padding: 18px 22px 48px; }
+.hero {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  padding: 24px 46px;
+  border: 1px solid #cdd7fc;
+  border-radius: 12px;
+  background: #e3e9ff;
+  margin-bottom: 18px;
+}
+.hero-icon {
+  width: 54px;
+  height: 60px;
+  display: grid;
+  place-items: center;
+  background: #5985d2;
+  color: white;
+  font-size: 37px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+h1 { color: #193d82; font-size: clamp(26px, 3vw, 38px); margin: 0 0 6px; }
+.hero p { margin: 0; color: #53617c; font-size: 15px; }
+.controls {
+  display: grid;
+  grid-template-columns: minmax(260px, 2.4fr) minmax(100px, .7fr) minmax(180px, 1.4fr) minmax(130px, 1fr);
+  align-items: end;
+  gap: 22px;
+  padding: 20px 34px;
+  background: #f7f9ff;
+  border: 1px solid #d7e1fa;
+  border-radius: 12px;
   margin-bottom: 20px;
 }
-
-h3 {
-  color: #2c3e9e;
-  margin-top: 30px;
-}
-
+.field { display: flex; flex-direction: column; gap: 8px; font-weight: bold; color: #17396d; }
 input, select {
-  padding: 9px 12px;
-  margin: 4px;
-  font-size: 15px;
-  border: 1px solid #b8c0d8;
-  border-radius: 6px;
-  background: #fff;
+  width: 100%; height: 44px; padding: 10px 12px;
+  border: 1px solid #cbd5e4; border-radius: 7px;
+  background: #fff; color: #18273f; font: inherit; font-weight: normal;
 }
-
-input:focus, select:focus {
-  outline: none;
-  border-color: #3f51d6;
-  box-shadow: 0 0 0 3px rgba(63, 81, 214, 0.2);
-}
-
+input:focus, select:focus { outline: 2px solid #a6bdef; outline-offset: 1px; }
 button {
-  padding: 9px 24px;
-  margin: 4px;
-  font-size: 15px;
-  font-weight: bold;
-  color: #fff;
-  background: #3f51d6;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
+  height: 44px; border: 0; border-radius: 7px;
+  background: var(--blue); color: #fff;
+  font: inherit; font-weight: bold; cursor: pointer;
+  box-shadow: 0 2px 5px #284e8820;
 }
-
-button:hover:not(:disabled) {
-  background: #2c3e9e;
+button:hover:not(:disabled) { background: #3763a8; }
+button:disabled { opacity: .55; cursor: not-allowed; }
+#error { color: #bd2424; font-weight: bold; margin: 0 0 12px; }
+#error:empty { display: none; }
+.algorithm-section {
+  padding: 16px;
+  border-radius: 14px;
+  margin: 20px 0;
+  border: 1px solid #e6e7eb;
+  box-shadow: 0 2px 5px #1c34520b;
 }
-
-button:disabled {
-  background: #aab0d0;
-  cursor: not-allowed;
-}
-
-table {
-  border-collapse: collapse;
-  margin: 12px 0;
-  width: 100%;
-  background: #fff;
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-}
-
-th, td {
-  border: 1px solid #dde1ee;
-  padding: 8px 12px;
-  text-align: center;
-}
-
-th {
-  background: #3f51d6;
-  color: #fff;
-}
-
-.hit {
-  background: #d4f5d0;
-}
-
-.fault {
-  background: #fbd5d5;
-}
-
-.bar {
-  height: 28px;
-  color: #fff;
-  font-weight: bold;
-  padding-left: 8px;
-  line-height: 28px;
-  margin: 6px 0;
-  border-radius: 4px;
-  min-width: 80px;
-}
-
-#error {
-  color: #c0392b;
+.algorithm-section.fifo { background: #fff2f2; border-color: #ffd2d2; }
+.algorithm-section.lru { background: #effaf2; border-color: #d3edda; }
+.algorithm-section.optimal { background: #eef3ff; border-color: #d2dfff; }
+.algorithm-section h2 { margin: 0 0 12px; font-size: 23px; color: #20242d; }
+.algorithm-section.fifo h2::before { content: '▰'; color: #e24e55; margin-right: 12px; }
+.algorithm-section.lru h2::before { content: '▰'; color: #2ba767; margin-right: 12px; }
+.algorithm-section.optimal h2::before { content: '▰'; color: #517acb; margin-right: 12px; }
+.table-wrap { width: 100%; overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; background: #fff; }
+th, td { padding: 8px 12px; text-align: center; border: 1px solid #e2e4e9; }
+th { color: #182a46; font-weight: bold; }
+.fifo th { background: #f9d8d8; }
+.lru th { background: #d1efdc; }
+.optimal th { background: #d7e3fa; }
+tr.fault { background: #ffeded; }
+tr.hit { background: #e1f4e0; }
+.status { display: inline-block; border-radius: 5px; padding: 2px 10px; font-weight: bold; }
+.status.fault { color: #c62828; background: #ffd2d2; }
+.status.hit { color: #17733c; background: #c4ebc4; }
+.summary {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 12px 22px;
+  padding: 12px 16px; margin-top: 12px;
+  border: 1px solid #f0e1d3; border-radius: 8px; background: #fffaf4;
   font-weight: bold;
 }
-
-@media (max-width: 600px) {
-  body { padding: 10px; }
-  th, td { padding: 6px; font-size: 13px; }
+.metric { display: inline-flex; gap: 6px; align-items: center; }
+.metric strong { padding: 3px 9px; border-radius: 5px; }
+.metric.total strong, .metric.ratio strong { background: #dce7ff; }
+.metric.hits strong { background: #d5f0d6; color: #145a30; }
+.metric.faults strong { background: #ffd9d9; color: #b32626; }
+.comparison {
+  padding: 20px; margin-top: 20px; border: 1px solid #d7e1fa;
+  border-radius: 14px; background: #f7f9ff;
+}
+.comparison h2 { margin: 0 0 14px; color: #193d82; font-size: 23px; }
+.comparison th { background: #dfe7fb; }
+.best { margin: 14px 0; font-weight: bold; color: #245c42; }
+.chart { display: grid; gap: 12px; }
+.chart-row { display: grid; grid-template-columns: 80px 1fr 75px; align-items: center; gap: 12px; }
+.chart-track { height: 23px; border-radius: 5px; background: #e6ebf5; overflow: hidden; }
+.chart-fill { height: 100%; border-radius: 5px; }
+.chart-row:nth-child(1) .chart-fill { background: #e57979; }
+.chart-row:nth-child(2) .chart-fill { background: #62b985; }
+.chart-row:nth-child(3) .chart-fill { background: #648bd8; }
+@media (max-width: 850px) {
+  .controls { grid-template-columns: 1fr 1fr; padding: 18px; }
+  .field-refs { grid-column: 1 / -1; }
+  .hero { padding: 20px; }
+}
+@media (max-width: 560px) {
+  .container { padding: 12px; }
+  .hero { gap: 12px; }
+  .hero-icon { display: none; }
+  .controls { grid-template-columns: 1fr; gap: 12px; }
+  .field-refs { grid-column: auto; }
+  .algorithm-section { padding: 10px; }
+  th, td { padding: 7px; font-size: 13px; }
+  .chart-row { grid-template-columns: 62px 1fr 60px; font-size: 13px; }
 }
