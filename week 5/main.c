@@ -70,7 +70,11 @@ int main(void) {
             for (int k = 0; k <= a; k++) close(fd[k][0]);  /* close read ends */
             static Result r;
             fn[a](refs, n, nf, &r);              /* run the algorithm */
-            write_all(fd[a][1], &r, sizeof r);   /* send result to parent */
+            if (write_all(fd[a][1], &r, sizeof r) == -1)
+            { 
+                perror("Pipe write failed"); 
+                close(fd[a][1]);    
+                _exit(1); }   /* send result to parent */
             close(fd[a][1]);
             _exit(0);
         }
