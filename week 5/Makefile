@@ -1,16 +1,12 @@
 CC = gcc
-CFLAGS = -Wall -Wextra
-ALGO = fifo_lru.c optimal.c compare.c input.c
+CFLAGS = -Wall -Wextra -I.
+SRC = main.c input.c compare.c fifo_lru/fifo_lru.c optimal/optimal.c
 
-all: sim
+sim: $(SRC) pagerep.h
+	$(CC) $(CFLAGS) $(SRC) -o sim
 
-sim: main.c $(ALGO) pagerep.h
-	$(CC) $(CFLAGS) main.c $(ALGO) -o sim
-
-wasm: wasm_api.c fifo_lru.c optimal.c pagerep.h
-	emcc wasm_api.c fifo_lru.c optimal.c -O2 -o ../website/sim.js \
-	  -s EXPORTED_FUNCTIONS=_simulate,_malloc,_free \
-	  -s EXPORTED_RUNTIME_METHODS=HEAP32
+wasm: wasm_api.c fifo_lru/fifo_lru.c optimal/optimal.c pagerep.h
+	emcc -I. wasm_api.c fifo_lru/fifo_lru.c optimal/optimal.c -O2 -o web/sim.js -s EXPORTED_FUNCTIONS=_simulate,_malloc,_free -s EXPORTED_RUNTIME_METHODS=HEAP32
 
 clean:
-	rm -f sim ../website/sim.js ../website/sim.wasm
+	rm -f sim web/sim.js web/sim.wasm
