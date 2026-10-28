@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "scheduler.h"
+#include "ipc_pipe.h"
 
 /* Display the scheduling algorithm menu */
 void show_menu(void)
@@ -184,10 +185,13 @@ int main(void)
 
             printf("\nAlgorithm: %s\n", algorithm_name(choice));
 
-            run_algorithm(choice, processes, n, quantum, &chart);
-
-            /* Calculate metrics using the Gantt chart */
-            calculate_metrics(processes, n, &chart);
+            /* IPC (pipe + fork): child runs the algorithm and calculates
+             * the metrics, then sends the results to this parent process */
+            if (run_algorithm_ipc(choice, processes, n, quantum, &chart) != 0)
+            {
+                printf("Could not run the algorithm.\n");
+                continue;
+            }
 
             /* Show the CPU execution timeline */
             printf("\nGantt Chart:\n");
