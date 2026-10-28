@@ -129,3 +129,40 @@ tr.hit { background: #e1f4e0; }
   th, td { padding: 7px; font-size: 13px; }
   .chart-row { grid-template-columns: 62px 1fr 60px; font-size: 13px; }
 }
+/* Page Fault Comparison Chart */
+
+.chart-container {
+  margin-top: 20px;
+}
+
+.chart-row {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin: 10px 0;
+}
+
+.chart-label {
+  width: 100px;
+  flex-shrink: 0;
+  font-weight: bold;
+}
+
+.chart-track {
+  flex: 1;
+  height: 30px;
+  background: #e5eaf3;
+  border-radius: 7px;
+  overflow: hidden;
+}
+
+.chart-bar {
+  height: 100%;
+  border-radius: 7px;
+  transition: width 0.4s ease;
+}
+
+.chart-row strong {
+  width: 35px;
+  text-align: left;
+}
