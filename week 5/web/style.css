@@ -110,7 +110,7 @@ tr.hit { background: #e1f4e0; }
 .chart { display: grid; gap: 12px; }
 .chart-row { display: grid; grid-template-columns: 80px 1fr 75px; align-items: center; gap: 12px; }
 .chart-track { height: 23px; border-radius: 5px; background: #e6ebf5; overflow: hidden; }
-.chart-fill { height: 100%; border-radius: 5px; }
+.chart-bar {   height: 100%;   border-radius: 5px; }
 .chart-row:nth-child(1) .chart-fill { background: #e57979; }
 .chart-row:nth-child(2) .chart-fill { background: #62b985; }
 .chart-row:nth-child(3) .chart-fill { background: #648bd8; }
