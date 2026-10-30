@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
+#include <signal.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -14,6 +15,14 @@
 
 /* Persistent simulation state */
 static System system_state_data;
+
+/* Ctrl+C or kill: stop the Banker process and remove the named pipes */
+static void on_exit_signal(int sig)
+{
+    (void)sig;
+    banker_server_stop();
+    _exit(0);
+}
 
 /* =========================================================
    HTTP RESPONSE
@@ -473,8 +482,9 @@ static void handle_request(int client,
     {
         int sequence[MAX_P];
 
+        /* IPC (named pipes): the Banker process does the safety check */
         int safe =
-            is_safe(
+            is_safe_ipc(
                 &system_state_data,
                 sequence
             );
@@ -1181,6 +1191,15 @@ int main(void)
     setup_demo(
         &system_state_data
     );
+
+
+    /* IPC (named pipes): start the Banker process.
+       If it fails, the website still works with a local safety check. */
+    if (banker_server_start() != 0)
+        fprintf(stderr, "Banker process could not start. Using local check.\n");
+
+    signal(SIGINT,  on_exit_signal);
+    signal(SIGTERM, on_exit_signal);
 
 
     server =
