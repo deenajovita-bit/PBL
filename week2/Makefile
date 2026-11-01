@@ -1,16 +1,17 @@
-CC = gcc
-CFLAGS = -Wall -Wextra
-ALGO = fifo_lru.c optimal.c compare.c input.c
+CC     = gcc
+CFLAGS = -Wall -Wextra -std=gnu99 -Icommon
+LIBS   = -pthread -lrt
 
-all: sim
+all: core/core UI/ui logger/logger
 
-sim: main.c $(ALGO) pagerep.h
-	$(CC) $(CFLAGS) main.c $(ALGO) -o sim
+core/core: core/core.c common/sync.c common/sync.h common/sim_interface.h common/ipc_common.h
+	$(CC) $(CFLAGS) -o $@ core/core.c common/sync.c $(LIBS)
 
-wasm: wasm_api.c fifo_lru.c optimal.c pagerep.h
-	emcc wasm_api.c fifo_lru.c optimal.c -O2 -o ../website/sim.js \
-	  -s EXPORTED_FUNCTIONS=_simulate,_malloc,_free \
-	  -s EXPORTED_RUNTIME_METHODS=HEAP32
+UI/ui: UI/ui.c common/sync.c common/sync.h common/sim_interface.h common/ipc_common.h
+	$(CC) $(CFLAGS) -o $@ UI/ui.c common/sync.c $(LIBS)
+
+logger/logger: logger/logger.c common/ipc_common.h
+	$(CC) $(CFLAGS) -o $@ logger/logger.c $(LIBS)
 
 clean:
-	rm -f sim ../website/sim.js ../website/sim.wasm
+	rm -f core/core UI/ui logger/logger
