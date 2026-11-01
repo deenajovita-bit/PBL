@@ -76,6 +76,18 @@ int banker_check(
 
 
 /* ==========================================
+   banker_ipc.c  (Week 4 IPC: named pipes / FIFO)
+   ========================================== */
+
+int  banker_server_start(void);
+void banker_server_stop(void);
+int  is_safe_ipc(
+    const System *s,
+    int seq[]
+);
+
+
+/* ==========================================
    detection.c
    ========================================== */
 
