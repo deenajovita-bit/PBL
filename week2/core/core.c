@@ -5,6 +5,15 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <mqueue.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <sys/mman.h>
+#include <fcntl.h>
+#include "sim_interface.h"
+#include "sync.h"
+#include <unistd.h>
+#include <signal.h>
+#include <sys/wait.h>
 
 #include "ipc_common.h"
 
@@ -76,11 +85,28 @@ InstructionQueue instruction_queue;
    MESSAGE QUEUE DESCRIPTORS
    ========================================================= */
 
-mqd_t ui_to_core = (mqd_t)-1;
+/* UI <-> Core now uses a UNIX SOCKET (Rishabh's part).
+ * State is mirrored into SHARED MEMORY (Nishanth's part),
+ * guarded by SEMAPHORES (Jovita's part). */
 
-mqd_t core_to_ui = (mqd_t)-1;
+int listen_fd = -1;
 
-mqd_t core_to_logger = (mqd_t)-1;
+int client_fd = -1;
+
+SharedState *shared = NULL;
+
+void sync_shared(void);
+
+
+/*
+ * Core -> Logger now uses an anonymous PIPE (pipe + fork).
+ * Core creates the pipe, forks the Logger as a child process,
+ * and keeps only the WRITE end here.
+ */
+
+int logger_pipe_fd = -1;
+
+pid_t logger_pid = -1;
 
 
 /* =========================================================
@@ -289,6 +315,71 @@ int queue_dequeue(Message *message)
 
 
 /* =========================================================
+   SOCKET HELPERS
+   A stream socket can return fewer bytes than asked, so we
+   loop until the whole Message is written / read.
+   ========================================================= */
+
+int write_full(int fd, const void *buffer, size_t size)
+{
+    const char *p = buffer;
+    size_t done = 0;
+
+    while (done < size)
+    {
+        ssize_t n = write(fd, p + done, size - done);
+
+        if (n < 0)
+        {
+            if (errno == EINTR)
+            {
+                continue;
+            }
+
+            return -1;
+        }
+
+        done += (size_t)n;
+    }
+
+    return 0;
+}
+
+
+/* Returns bytes read (== size), 0 if the other side closed, -1 on error. */
+
+ssize_t read_full(int fd, void *buffer, size_t size)
+{
+    char *p = buffer;
+    size_t done = 0;
+
+    while (done < size)
+    {
+        ssize_t n = read(fd, p + done, size - done);
+
+        if (n == 0)
+        {
+            return 0;
+        }
+
+        if (n < 0)
+        {
+            if (errno == EINTR)
+            {
+                continue;
+            }
+
+            return -1;
+        }
+
+        done += (size_t)n;
+    }
+
+    return (ssize_t)done;
+}
+
+
+/* =========================================================
    SEND MESSAGE TO UI
    ========================================================= */
 
@@ -321,11 +412,18 @@ void send_to_ui(
     }
 
 
-    if (mq_send(
-            core_to_ui,
-            (const char *)&message,
-            sizeof(Message),
-            0
+    /*
+     * Update shared memory BEFORE the reply goes out, so when the
+     * UI gets the reply and reads the shared state, it is current.
+     */
+
+    sync_shared();
+
+
+    if (write_full(
+            client_fd,
+            &message,
+            sizeof(Message)
         ) == -1)
     {
         perror("Error sending message to UI");
@@ -366,14 +464,16 @@ void send_to_logger(
     }
 
 
-    if (mq_send(
-            core_to_logger,
-            (const char *)&message,
-            sizeof(Message),
-            0
-        ) == -1)
+    if (logger_pipe_fd != -1)
     {
-        perror("Error sending message to Logger");
+        if (write(
+                logger_pipe_fd,
+                &message,
+                sizeof(Message)
+            ) != (ssize_t)sizeof(Message))
+        {
+            perror("Error sending message to Logger");
+        }
     }
 }
 
@@ -907,90 +1007,152 @@ int execute_command(Message *command)
 
 
 /* =========================================================
+   COPY CORE STATE INTO SHARED MEMORY
+   Lock (semaphore) -> copy -> unlock.
+   ========================================================= */
+
+void sync_shared(void)
+{
+    if (shared == NULL)
+    {
+        return;
+    }
+
+    lock_state();
+
+    shared->accumulator     = cpu.accumulator;
+    shared->program_counter = cpu.program_counter;
+
+    memcpy(shared->memory, memory.data, sizeof(shared->memory));
+
+    memcpy(shared->stack, stack.data, sizeof(shared->stack));
+
+    shared->stack_top   = stack.top;
+    shared->queue_count = instruction_queue.count;
+
+    unlock_state();
+}
+
+
+/* =========================================================
    OPEN MESSAGE QUEUES
    ========================================================= */
 
 int open_queues(void)
 {
-    struct mq_attr attributes;
+    /* ---------- 1. Semaphores (Jovita) ---------- */
 
-    memset(
-        &attributes,
-        0,
-        sizeof(attributes)
-    );
-
-
-    /*
-     * POSIX message queue attributes.
-     *
-     * This is separate from QUEUE_SIZE,
-     * which is the Core's internal instruction queue.
-     */
-
-    attributes.mq_maxmsg = 10;
-
-    attributes.mq_msgsize = sizeof(Message);
-
-
-    /* UI → CORE */
-
-    ui_to_core = mq_open(
-        UI_TO_CORE_QUEUE,
-        O_CREAT | O_RDONLY,
-        0666,
-        &attributes
-    );
-
-
-    if (ui_to_core == (mqd_t)-1)
+    if (sync_create() == -1)
     {
-        perror("mq_open ui_to_core");
+        return 0;
+    }
+
+
+    /* ---------- 2. Shared memory (Nishanth) ---------- */
+
+    int shm_fd = shm_open(SIM_SHM_NAME, O_CREAT | O_RDWR, 0666);
+
+    if (shm_fd == -1)
+    {
+        perror("shm_open");
+
+        return 0;
+    }
+
+    if (ftruncate(shm_fd, sizeof(SharedState)) == -1)
+    {
+        perror("ftruncate");
+
+        close(shm_fd);
+
+        return 0;
+    }
+
+    shared = mmap(
+        NULL,
+        sizeof(SharedState),
+        PROT_READ | PROT_WRITE,
+        MAP_SHARED,
+        shm_fd,
+        0
+    );
+
+    close(shm_fd);
+
+    if (shared == MAP_FAILED)
+    {
+        perror("mmap");
+
+        shared = NULL;
 
         return 0;
     }
 
 
-    /* CORE → UI */
+    /* ---------- 3. Socket server (Rishabh's UI connects here) ---------- */
 
-    core_to_ui = mq_open(
-        CORE_TO_UI_QUEUE,
-        O_CREAT | O_WRONLY,
-        0666,
-        &attributes
-    );
+    struct sockaddr_un addr;
 
+    listen_fd = socket(AF_UNIX, SOCK_STREAM, 0);
 
-    if (core_to_ui == (mqd_t)-1)
+    if (listen_fd == -1)
     {
-        perror("mq_open core_to_ui");
+        perror("socket");
 
-        mq_close(ui_to_core);
+        return 0;
+    }
+
+    memset(&addr, 0, sizeof(addr));
+
+    addr.sun_family = AF_UNIX;
+
+    strncpy(addr.sun_path, SIM_SOCKET_PATH, sizeof(addr.sun_path) - 1);
+
+    unlink(SIM_SOCKET_PATH);
+
+    if (bind(listen_fd, (struct sockaddr *)&addr, sizeof(addr)) == -1)
+    {
+        perror("bind");
+
+        return 0;
+    }
+
+    if (listen(listen_fd, 1) == -1)
+    {
+        perror("listen");
 
         return 0;
     }
 
 
-    /* CORE → LOGGER */
+    /* ---------- 4. Tell UI: everything is ready ---------- */
 
-    core_to_logger = mq_open(
-        CORE_TO_LOGGER_QUEUE,
-        O_CREAT | O_WRONLY,
-        0666,
-        &attributes
-    );
+    sync_shared();
+
+    signal_core_ready();
+
+    return 1;
+}
 
 
-    if (core_to_logger == (mqd_t)-1)
+/* =========================================================
+   WAIT FOR THE UI TO CONNECT
+   ========================================================= */
+
+int accept_ui(void)
+{
+    do
     {
-        perror("mq_open core_to_logger");
+        client_fd = accept(listen_fd, NULL, NULL);
+    }
+    while (client_fd == -1 && errno == EINTR);
 
-        mq_close(ui_to_core);
-        mq_close(core_to_ui);
+    if (client_fd == -1)
+    {
+        perror("accept");
 
         return 0;
     }
-
 
     return 1;
 }
@@ -1002,21 +1164,133 @@ int open_queues(void)
 
 void close_queues(void)
 {
-    if (ui_to_core != (mqd_t)-1)
+    if (client_fd != -1)
     {
-        mq_close(ui_to_core);
+        close(client_fd);
+
+        client_fd = -1;
+    }
+
+    if (listen_fd != -1)
+    {
+        close(listen_fd);
+
+        listen_fd = -1;
+
+        unlink(SIM_SOCKET_PATH);
+    }
+
+    if (shared != NULL)
+    {
+        munmap(shared, sizeof(SharedState));
+
+        shared = NULL;
+
+        shm_unlink(SIM_SHM_NAME);
+    }
+
+    sync_destroy();
+}
+
+
+/* =========================================================
+   START LOGGER PROCESS (PIPE + FORK)
+   ========================================================= */
+
+int start_logger(void)
+{
+    int fds[2];     /* fds[0] = read end, fds[1] = write end */
+
+
+    /*
+     * If the Logger dies, writing to the pipe would
+     * kill Core with SIGPIPE. Ignore it; write() will
+     * just return an error instead.
+     */
+
+    signal(SIGPIPE, SIG_IGN);
+
+
+    if (pipe(fds) == -1)
+    {
+        perror("pipe");
+
+        return 0;
     }
 
 
-    if (core_to_ui != (mqd_t)-1)
+    logger_pid = fork();
+
+
+    if (logger_pid == -1)
     {
-        mq_close(core_to_ui);
+        perror("fork");
+
+        close(fds[0]);
+        close(fds[1]);
+
+        return 0;
     }
 
 
-    if (core_to_logger != (mqd_t)-1)
+    if (logger_pid == 0)
     {
-        mq_close(core_to_logger);
+        /* ---------- CHILD: becomes the Logger ---------- */
+
+        close(fds[1]);              /* child does not write */
+
+        if (dup2(fds[0], STDIN_FILENO) == -1)
+        {
+            perror("dup2");
+
+            _exit(EXIT_FAILURE);
+        }
+
+        close(fds[0]);
+
+        /* Try the usual places where the logger program can be. */
+
+        execl("./logger", "logger", "--pipe", (char *)NULL);
+        execl("../logger/logger", "logger", "--pipe", (char *)NULL);
+        execl("./logger/logger", "logger", "--pipe", (char *)NULL);
+
+        perror("exec logger");
+
+        _exit(EXIT_FAILURE);
+    }
+
+
+    /* ---------- PARENT: Core ---------- */
+
+    close(fds[0]);                  /* parent does not read */
+
+    logger_pipe_fd = fds[1];
+
+    return 1;
+}
+
+
+/* =========================================================
+   STOP LOGGER PROCESS
+   ========================================================= */
+
+void stop_logger(void)
+{
+    if (logger_pipe_fd != -1)
+    {
+        /* Closing the write end gives the Logger end-of-file. */
+
+        close(logger_pipe_fd);
+
+        logger_pipe_fd = -1;
+    }
+
+
+    if (logger_pid > 0)
+    {
+        waitpid(logger_pid, NULL, 0);
+
+        logger_pid = -1;
     }
 }
 
@@ -1069,22 +1343,47 @@ int main(void)
 
 
     /* -----------------------------------------
-       Open POSIX Message Queues
+       Set up IPC: semaphores, shared memory, socket
        ----------------------------------------- */
 
     if (!open_queues())
     {
         fprintf(
             stderr,
-            "Failed to open POSIX message queues.\n"
+            "Failed to set up socket / shared memory / semaphores.\n"
         );
 
         return EXIT_FAILURE;
     }
 
 
+    /* -----------------------------------------
+       Start Logger process (pipe + fork)
+       ----------------------------------------- */
+
+    if (!start_logger())
+    {
+        fprintf(
+            stderr,
+            "Warning: Logger could not be started. "
+            "Logging is off.\n"
+        );
+    }
+
+
     printf("Core initialized successfully.\n");
-    printf("Waiting for commands from UI...\n");
+    printf("Waiting for UI to connect...\n");
+
+    if (!accept_ui())
+    {
+        stop_logger();
+
+        close_queues();
+
+        return EXIT_FAILURE;
+    }
+
+    printf("UI connected. Waiting for commands...\n");
 
 
     send_to_logger(
@@ -1113,11 +1412,10 @@ int main(void)
          * Wait for a command from UI.
          */
 
-        bytes_received = mq_receive(
-            ui_to_core,
-            (char *)&command,
-            sizeof(Message),
-            NULL
+        bytes_received = read_full(
+            client_fd,
+            &command,
+            sizeof(Message)
         );
 
 
@@ -1129,7 +1427,7 @@ int main(void)
             }
 
 
-            perror("mq_receive");
+            perror("read from UI");
 
 
             send_to_logger(
@@ -1139,6 +1437,21 @@ int main(void)
                 "Failed to receive command from UI."
             );
 
+
+            break;
+        }
+
+
+        if (bytes_received == 0)
+        {
+            printf("UI disconnected.\n");
+
+            send_to_logger(
+                LOG_SYSTEM,
+                0,
+                -1,
+                "UI disconnected."
+            );
 
             break;
         }
@@ -1212,6 +1525,8 @@ int main(void)
 
 
     close_queues();
+
+    stop_logger();
 
 
     printf("\n");
