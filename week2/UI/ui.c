@@ -1,17 +1,128 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <mqueue.h>
+#include <errno.h>
 #include <fcntl.h>
+#include <unistd.h>
+#include <signal.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <sys/mman.h>
+#include <strings.h>
 
-#include "ipc_common.h"
+#include "sim_interface.h"
+#include "sync.h"
 
 /* =========================================
-   MESSAGE QUEUE DESCRIPTORS
+   IPC HANDLES
+   Socket (commands + replies), shared memory (live state)
    ========================================= */
 
-mqd_t ui_to_core;
-mqd_t core_to_ui;
+int sock_fd = -1;
+
+SharedState *shared = NULL;
+
+
+/* Read exactly 'size' bytes. Returns size, 0 if Core closed, -1 on error. */
+
+ssize_t read_full(int fd, void *buffer, size_t size)
+{
+    char *p = buffer;
+    size_t done = 0;
+
+    while (done < size)
+    {
+        ssize_t n = read(fd, p + done, size - done);
+
+        if (n == 0)
+            return 0;
+
+        if (n < 0)
+        {
+            if (errno == EINTR)
+                continue;
+
+            return -1;
+        }
+
+        done += (size_t)n;
+    }
+
+    return (ssize_t)done;
+}
+
+
+/* Write exactly 'size' bytes. Returns 0 or -1. */
+
+int write_full(int fd, const void *buffer, size_t size)
+{
+    const char *p = buffer;
+    size_t done = 0;
+
+    while (done < size)
+    {
+        ssize_t n = write(fd, p + done, size - done);
+
+        if (n < 0)
+        {
+            if (errno == EINTR)
+                continue;
+
+            return -1;
+        }
+
+        done += (size_t)n;
+    }
+
+    return 0;
+}
+
+
+/* =========================================
+   LIVE STATE (reads SHARED MEMORY)
+   lock_state / unlock_state are the semaphores
+   so we never read half-written data.
+   ========================================= */
+
+void show_live_state(void)
+{
+    SharedState copy;
+
+    lock_state();
+    copy = *shared;
+    unlock_state();
+
+    printf("\n");
+    printf("======= LIVE STATE (shared memory) =======\n");
+    printf("ACC = %d    PC = %d\n", copy.accumulator, copy.program_counter);
+    printf("Stack : size=%d", copy.stack_top + 1);
+
+    for (int i = 0; i <= copy.stack_top && i < STACK_SIZE; i++)
+        printf("%s%d", i == 0 ? "  [" : ", ", copy.stack[i]);
+
+    if (copy.stack_top >= 0)
+        printf("]");
+
+    printf("\n");
+    printf("Queue : %d instruction(s) waiting\n", copy.queue_count);
+    printf("Memory (non-zero cells):");
+
+    int shown = 0;
+
+    for (int i = 0; i < MEMORY_SIZE; i++)
+    {
+        if (copy.memory[i] != 0)
+        {
+            printf(" [%d]=%d", i, copy.memory[i]);
+            shown++;
+        }
+    }
+
+    if (shown == 0)
+        printf(" none");
+
+    printf("\n==========================================\n");
+}
 
 
 /* =========================================
@@ -36,6 +147,7 @@ void display_menu(void)
     printf("SHOW MEMORY        - Show memory information\n");
     printf("SHOW STACK         - Show stack information\n");
     printf("SHOW QUEUE         - Show instruction queue\n");
+    printf("STATE              - Live state (shared memory)\n");
     printf("EXIT               - Exit simulator\n");
     printf("========================================\n");
 }
@@ -178,10 +290,7 @@ int create_command(char *input, Message *msg)
 
 int send_to_core(Message *msg)
 {
-    if (mq_send(ui_to_core,
-                (const char *)msg,
-                sizeof(Message),
-                0) == -1)
+    if (write_full(sock_fd, msg, sizeof(Message)) == -1)
     {
         perror("Error sending message to Core");
         return 0;
@@ -199,12 +308,15 @@ void receive_from_core(void)
 {
     Message response;
 
-    if (mq_receive(core_to_ui,
-                   (char *)&response,
-                   sizeof(Message),
-                   NULL) == -1)
+    ssize_t n = read_full(sock_fd, &response, sizeof(Message));
+
+    if (n <= 0)
     {
-        perror("Error receiving response from Core");
+        if (n == 0)
+            printf("\nCore closed the connection.\n");
+        else
+            perror("Error receiving response from Core");
+
         return;
     }
 
@@ -289,31 +401,75 @@ int main(void)
 
 
     /* -----------------------------------------
-       Open UI -> Core queue
+       Semaphores: wait until Core is ready
        ----------------------------------------- */
 
-    ui_to_core = mq_open(UI_TO_CORE_QUEUE, O_WRONLY);
+    signal(SIGPIPE, SIG_IGN);
 
-    if (ui_to_core == (mqd_t)-1)
+    if (sync_open() == -1)
     {
-        perror("Failed to open UI-to-Core queue");
         printf("Make sure the Core process is running.\n");
+        return EXIT_FAILURE;
+    }
+
+    if (wait_core_ready(10) == -1)
+    {
+        sync_close();
         return EXIT_FAILURE;
     }
 
 
     /* -----------------------------------------
-       Open Core -> UI queue
+       Shared memory: map Core's state
        ----------------------------------------- */
 
-    core_to_ui = mq_open(CORE_TO_UI_QUEUE, O_RDONLY);
+    int shm_fd = shm_open(SIM_SHM_NAME, O_RDWR, 0666);
 
-    if (core_to_ui == (mqd_t)-1)
+    if (shm_fd == -1)
     {
-        perror("Failed to open Core-to-UI queue");
+        perror("Failed to open shared memory");
+        sync_close();
+        return EXIT_FAILURE;
+    }
 
-        mq_close(ui_to_core);
+    shared = mmap(NULL, sizeof(SharedState),
+                  PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
 
+    close(shm_fd);
+
+    if (shared == MAP_FAILED)
+    {
+        perror("Failed to map shared memory");
+        sync_close();
+        return EXIT_FAILURE;
+    }
+
+
+    /* -----------------------------------------
+       Socket: connect to Core
+       ----------------------------------------- */
+
+    struct sockaddr_un addr;
+
+    sock_fd = socket(AF_UNIX, SOCK_STREAM, 0);
+
+    if (sock_fd == -1)
+    {
+        perror("socket");
+        sync_close();
+        return EXIT_FAILURE;
+    }
+
+    memset(&addr, 0, sizeof(addr));
+    addr.sun_family = AF_UNIX;
+    strncpy(addr.sun_path, SIM_SOCKET_PATH, sizeof(addr.sun_path) - 1);
+
+    if (connect(sock_fd, (struct sockaddr *)&addr, sizeof(addr)) == -1)
+    {
+        perror("Failed to connect to Core");
+        printf("Make sure the Core process is running.\n");
+        close(sock_fd);
+        sync_close();
         return EXIT_FAILURE;
     }
 
@@ -352,6 +508,15 @@ int main(void)
 
         if (strlen(input) == 0)
             continue;
+
+
+        /* STATE is handled here: it reads shared memory, no message to Core */
+
+        if (strcasecmp(input, "STATE") == 0)
+        {
+            show_live_state();
+            continue;
+        }
 
 
         /* Convert command to Message */
@@ -399,8 +564,9 @@ int main(void)
        Close message queues
        ----------------------------------------- */
 
-    mq_close(ui_to_core);
-    mq_close(core_to_ui);
+    close(sock_fd);
+    munmap(shared, sizeof(SharedState));
+    sync_close();
 
 
     printf("UI process terminated.\n");
