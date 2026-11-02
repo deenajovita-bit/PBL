@@ -1,4 +1,4 @@
-/* =====================================================================
+* =====================================================================
  * logger.c  -  Logger process for the Week 4 CPU Simulator PBL project
  *
  * Architecture:
@@ -13,7 +13,8 @@
  *   6. Closes the queue, closes the log file, unlinks the queue
  *
  * Compile:  gcc -Wall -Wextra -o logger logger.c -lrt
- * Run:      ./logger
+ * Run:      started by Core automatically (./logger --pipe, via pipe + fork)
+ *           or alone: ./logger  (old message-queue mode)
  * ===================================================================== */
 
 #include <stdio.h>
@@ -26,6 +27,7 @@
 #include <fcntl.h>      /* O_RDONLY, O_CREAT            */
 #include <sys/stat.h>   /* mode constants for mq_open   */
 #include <mqueue.h>     /* mq_open, mq_receive, ...     */
+#include <sys/types.h>  /* ssize_t                      */
 
 #include "ipc_common.h" /* queue names, Message, MessageType (NOT modified) */
 
@@ -139,8 +141,103 @@ static void write_logger_note(FILE *log_file, const char *text)
 }
 
 
-int main(void)
+/* ---------------------------------------------------------------------
+ * PIPE MODE (used when Core starts the Logger with fork + exec).
+ * Core connects the read end of a pipe to this process's stdin (fd 0).
+ * We read whole Message structs from it until Core closes the pipe
+ * (end-of-file) or a signal comes.
+ *
+ * read() can return fewer bytes than asked, so we keep reading
+ * until we have a full Message.
+ * Returns 1 = got a full message, 0 = end of file, -1 = error/signal.
+ * --------------------------------------------------------------------- */
+static int read_full_message(int fd, Message *msg)
 {
+    size_t got = 0;
+    char *p = (char *)msg;
+
+    while (got < sizeof(Message)) {
+        ssize_t n = read(fd, p + got, sizeof(Message) - got);
+        if (n == 0) {
+            return 0;                       /* pipe closed by Core */
+        }
+        if (n < 0) {
+            if (errno == EINTR && keep_running) {
+                continue;
+            }
+            return -1;
+        }
+        got += (size_t)n;
+    }
+    return 1;
+}
+
+static int run_pipe_mode(void)
+{
+    struct sigaction sa;
+    memset(&sa, 0, sizeof(sa));
+    sa.sa_handler = handle_signal;
+    sigemptyset(&sa.sa_mask);
+    sigaction(SIGINT,  &sa, NULL);
+    sigaction(SIGTERM, &sa, NULL);
+
+    FILE *log_file = fopen(LOG_FILE_NAME, "a");
+    if (log_file == NULL) {
+        perror("Logger: cannot open " LOG_FILE_NAME);
+        return EXIT_FAILURE;
+    }
+
+    printf("=== Logger process started (PID %d) ===\n", (int)getpid());
+    printf("Reading from       : pipe (stdin) from Core\n");
+    printf("Writing to file    : %s\n\n", LOG_FILE_NAME);
+    write_logger_note(log_file, "Logger started, waiting for messages (pipe).");
+
+    int messages_logged = 0;
+
+    while (keep_running) {
+        Message msg;
+        int r = read_full_message(STDIN_FILENO, &msg);
+
+        if (r == 0) {
+            write_logger_note(log_file, "Pipe closed by Core.");
+            break;
+        }
+        if (r < 0) {
+            break;                          /* signal or read error */
+        }
+
+        msg.data[MAX_DATA - 1] = '\0';
+        write_log_entry(log_file, &msg);
+        messages_logged++;
+
+        /* In pipe mode we do NOT stop on the EXIT message: Core may
+         * still send its last log lines. The pipe closing (EOF) is
+         * the stop signal. */
+    }
+
+    if (!keep_running) {
+        write_logger_note(log_file, "Stopped by signal (Ctrl+C / SIGTERM).");
+    }
+
+    char summary[64];
+    snprintf(summary, sizeof(summary),
+             "Logger shutting down. Messages logged: %d", messages_logged);
+    write_logger_note(log_file, summary);
+
+    fclose(log_file);
+    printf("=== Logger process terminated ===\n");
+    return EXIT_SUCCESS;
+}
+
+
+int main(int argc, char *argv[])
+{
+    /* "--pipe" = started by Core through pipe + fork.
+     * No argument = old standalone mode with the POSIX message queue. */
+    if (argc > 1 && strcmp(argv[1], "--pipe") == 0) {
+        return run_pipe_mode();
+    }
+
     /* ---------- 1. Set up signal handling ----------
      * We use sigaction WITHOUT SA_RESTART so that a blocked mq_receive()
      * is interrupted by Ctrl+C and returns -1 with errno == EINTR.
