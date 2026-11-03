@@ -1,3 +1,12 @@
 *.o
 deadlock_sim
 test_integration
+week2/core/core
+week2/UI/ui
+week2/logger/logger
+week2/benchmark/bench_standalone
+week2/benchmark/bench_multi
+week2/core/simulator.log
+week 3/scheduler
+week 5/sim
+*.zip
