@@ -9,6 +9,7 @@
 #include <sys/un.h>
 #include <sys/mman.h>
 #include <strings.h>
+#include <ctype.h>
 
 #include "sim_interface.h"
 #include "sync.h"
@@ -135,21 +136,106 @@ void display_menu(void)
     printf("========================================\n");
     printf("           CPU SIMULATOR UI\n");
     printf("========================================\n");
-    printf("LOAD <value>       - Load value into ACC\n");
-    printf("ADD <value>        - Add value to ACC\n");
-    printf("SUB <value>        - Subtract value from ACC\n");
-    printf("PUSH <value>       - Push value onto stack\n");
-    printf("POP                - Pop value into ACC\n");
-    printf("STORE <address>    - Store ACC in memory\n");
-    printf("LOADM <address>    - Load memory into ACC\n");
-    printf("PRINT              - Print ACC\n");
-    printf("SHOW CPU           - Show CPU information\n");
-    printf("SHOW MEMORY        - Show memory information\n");
-    printf("SHOW STACK         - Show stack information\n");
-    printf("SHOW QUEUE         - Show instruction queue\n");
-    printf("STATE              - Live state (shared memory)\n");
-    printf("EXIT               - Exit simulator\n");
+    printf(" 1.  LOAD   - Load a value into ACC\n");
+    printf(" 2.  ADD    - Add a value to ACC\n");
+    printf(" 3.  SUB    - Subtract a value from ACC\n");
+    printf(" 4.  PUSH   - Push a value onto the stack\n");
+    printf(" 5.  POP    - Pop a value into ACC\n");
+    printf(" 6.  STORE  - Store ACC in a memory address\n");
+    printf(" 7.  LOADM  - Load a memory address into ACC\n");
+    printf(" 8.  PRINT  - Print ACC\n");
+    printf(" 9.  Show CPU\n");
+    printf("10.  Show memory\n");
+    printf("11.  Show stack\n");
+    printf("12.  Show instruction queue\n");
+    printf("13.  Live state (shared memory)\n");
+    printf(" 0.  Exit simulator\n");
     printf("========================================\n");
+    printf("(You can also type a command, for example: ADD 5)\n");
+}
+
+
+/* =========================================
+   MENU CHOICE -> COMMAND TEXT
+   Turns a menu number into the same text command the user
+   could have typed (for example choice 2 + value 5 -> "ADD 5"),
+   so the rest of the UI does not change.
+
+   Returns 1 = 'input' now holds a command to run,
+           2 = STATE (handled by the UI itself),
+           0 = nothing to run (cancelled or invalid).
+   ========================================= */
+
+int read_number(const char *prompt, int *number)
+{
+    char line[64];
+    char *end;
+
+    printf("%s", prompt);
+    fflush(stdout);
+
+    if (fgets(line, sizeof(line), stdin) == NULL)
+        return 0;
+
+    long v = strtol(line, &end, 10);
+
+    if (end == line)
+        return 0;
+
+    while (*end == ' ' || *end == '\n' || *end == '\r')
+        end++;
+
+    if (*end != '\0')
+        return 0;
+
+    *number = (int)v;
+    return 1;
+}
+
+
+int menu_choice_to_command(int choice, char *input, size_t size)
+{
+    static const char *with_value[] = { "LOAD", "ADD", "SUB", "PUSH" };
+    int number;
+
+    if (choice >= 1 && choice <= 4)
+    {
+        if (!read_number("Enter value: ", &number))
+        {
+            printf("\nThat is not a number. Command cancelled.\n");
+            return 0;
+        }
+
+        snprintf(input, size, "%s %d", with_value[choice - 1], number);
+        return 1;
+    }
+
+    if (choice == 6 || choice == 7)
+    {
+        if (!read_number("Enter memory address: ", &number))
+        {
+            printf("\nThat is not a number. Command cancelled.\n");
+            return 0;
+        }
+
+        snprintf(input, size, "%s %d", choice == 6 ? "STORE" : "LOADM", number);
+        return 1;
+    }
+
+    switch (choice)
+    {
+        case 0:  snprintf(input, size, "EXIT");        return 1;
+        case 5:  snprintf(input, size, "POP");         return 1;
+        case 8:  snprintf(input, size, "PRINT");       return 1;
+        case 9:  snprintf(input, size, "SHOW CPU");    return 1;
+        case 10: snprintf(input, size, "SHOW MEMORY"); return 1;
+        case 11: snprintf(input, size, "SHOW STACK");  return 1;
+        case 12: snprintf(input, size, "SHOW QUEUE");  return 1;
+        case 13: return 2;
+    }
+
+    printf("\nInvalid choice. Please pick a number from 0 to 13.\n");
+    return 0;
 }
 
 
@@ -161,7 +247,6 @@ int create_command(char *input, Message *msg)
 {
     char command[20];
     char option[20];
-    int value;
     int address;
 
     memset(msg, 0, sizeof(Message));
@@ -486,7 +571,7 @@ int main(void)
     {
         display_menu();
 
-        printf("\nEnter command: ");
+        printf("\nEnter your choice (0-13), or type a command: ");
         fflush(stdout);
 
 
@@ -510,9 +595,40 @@ int main(void)
             continue;
 
 
+        /* Menu number? Turn it into the matching command text. */
+
+        int is_number = 1;
+
+        for (size_t i = 0; input[i] != '\0'; i++)
+        {
+            if (!isdigit((unsigned char)input[i]))
+                is_number = 0;
+        }
+
+        if (is_number)
+        {
+            int result = menu_choice_to_command(atoi(input), input, sizeof(input));
+
+            if (result == 0)
+                continue;
+
+            if (result == 2)
+            {
+                show_live_state();
+                continue;
+            }
+        }
+
+
+        /* Typed commands are accepted in lower case too. */
+
+        for (size_t i = 0; input[i] != '\0'; i++)
+            input[i] = (char)toupper((unsigned char)input[i]);
+
+
         /* STATE is handled here: it reads shared memory, no message to Core */
 
-        if (strcasecmp(input, "STATE") == 0)
+        if (strcmp(input, "STATE") == 0)
         {
             show_live_state();
             continue;
