@@ -1,165 +1,72 @@
-# Deadlock Simulation System (PBL Week 4)
+# Page Replacement Simulator (PBL Week 5)
 
-An interactive simulator written in C. It shows how an Operating System handles resources and deadlock.
+Simulates FIFO, LRU and Optimal page replacement. Shows the frame contents after each request, hits, faults, ratios, and a comparison of the three algorithms.
 
-It has two ways to use it:
-- **GTK window version** (C + GTK)
-- **Website version** (C backend + HTML/JS website)
-
-**IPC used this week: Named Pipes (FIFO)**
-
-## What it does
-
-- Create processes and resources
-- Allocation, Maximum, Need and Available matrices
-- Banker's Algorithm (safe / unsafe state, safe sequence)
-- Deadlock detection
-- Resource Allocation Graph (GTK version)
-- Deadlock recovery (terminate a process, free its resources)
-- Resource utilization and system status
-
-## Who wrote what
-
-| File | Owner |
-|---|---|
-| main.c, deadlock.h, Makefile, README.md | Jovita deena dsouza |
-| banker.c | rithvik |
-| detection.c, resource.c, recovery.c | nishanth |
-| gui.c, graph.c | rishbah |
-
-## IPC: Named Pipes (FIFO)
-
-In the website version, the Banker's Algorithm runs in a **separate Banker process**. The backend and the Banker process talk through **two named pipes**.
-
-```text
-   BACKEND (main process)                     BANKER PROCESS
-   ----------------------                     --------------
-   starts, makes 2 named pipes
-   fork() ------------------------------->   starts, opens the pipes
-
-   website clicks "Run Banker's Algorithm"
-   sends the System data   --- request pipe --->   reads the System data
-                                                   runs is_safe()
-   reads the result        <-- response pipe ---   sends SAFE/UNSAFE + sequence
-
-   Ctrl+C: closes the pipes ---------------->  sees "end of pipe" and stops
-   deletes the pipes, waitpid()
-```
-
-The two named pipes are made in `/tmp`:
-- `deadlock_banker_req_<pid>` : backend to Banker process (the System data)
-- `deadlock_banker_res_<pid>` : Banker process to backend (the result and safe sequence)
-
-How it works:
-- `banker_server_start()` makes the pipes with `mkfifo()` and starts the Banker process with `fork()`.
-- `is_safe_ipc()` sends the System data through the request pipe and reads the answer from the response pipe.
-- `banker_server_stop()` closes the pipes, waits for the Banker process (no zombie) and deletes the pipe files.
-- `write_all()` and `read_all()` keep sending/reading until all the data is done, because one `write()` or `read()` can do less than asked.
-- If the Banker process cannot start, the website still works. It uses the normal local check.
-- Ctrl+C is handled, so the Banker process and the pipes are cleaned up.
-
-Which button uses the IPC:
-- **Run Banker's Algorithm** uses the IPC (`/api/safety`).
-- Other buttons (Send Resource Request, Detect Deadlock, Recovery) run inside the backend as before.
-
-How to show the IPC in a demo:
-```bash
-ps -ef | grep "[d]eadlock_backend"     # 2 processes: backend + Banker process
-ls /tmp | grep deadlock_banker          # 2 named pipes
-```
-Then click **Run Banker's Algorithm** on the website.
+## Team
+- Risbah: FIFO + LRU (`fifo_lru/fifo_lru.c`)
+- Rithvik: Optimal + comparison (`optimal/optimal.c`, `compare.c`)
+- Nisthanth: Website (`web/`)
+- Jovita (Leader): integration, input check, IPC (pipes + `fork()`), testing, report
 
 ## Files
-
-| File | What it has |
-|---|---|
-| `main.c` | Starts the GTK version |
-| `deadlock.h` | Shared structures and function list |
-| `banker/banker.c` | Banker's Algorithm (`is_safe`, need, request) |
-| `banker/banker_ipc.c` | Named pipe IPC (Banker process, `is_safe_ipc`) |
-| `core/detection.c` | Deadlock detection |
-| `core/resource.c` | Resource and system setup |
-| `core/recovery.c` | Deadlock recovery |
-| `gui/gui.c`, `gui/graph.c` | GTK window and graph |
-| `web/backend.c` | C backend server for the website (port 8001) |
-| `web/index.html`, `script.js`, `style.css` | The website |
-
-## Website version
-
-### Build and run the backend
-
-```bash
-sudo apt-get install -y libcairo2-dev pkg-config     # only the first time
-cd "week 4"
-gcc -I. $(pkg-config --cflags cairo) -Wall -Wextra -std=c99 \
-    web/backend.c banker/banker.c banker/banker_ipc.c \
-    core/detection.c core/resource.c core/recovery.c \
-    -lm -o web/deadlock_backend
-./web/deadlock_backend
+```text
+week 5/
+├── main.c            Parent process: input, fork(), pipes, output
+├── input.c           Checks the page-reference string
+├── compare.c         Hit/fault ratios and best algorithm
+├── pagerep.h         Result and Step structures
+├── fifo_lru/         FIFO and LRU
+├── optimal/          Optimal
+├── wasm_api.c        Entry point for the website (WebAssembly)
+├── web/              Website: index.html, style.css, script.js, sim.js, sim.wasm
+└── Makefile
 ```
-Keep this terminal open. It shows `Listening on port 8001`.
 
-The old `web/deadlock_backend` file is a build. Always build it again after you change the C code.
-
-### Open the website
-
-1. In the Codespaces **Ports** tab, set port **8001** to **Public** and copy its address.
-2. Open `web/script.js`. Line 6 (`API_URL`) must be that address, with no `/` at the end.
-3. Open a second terminal and start the website:
-   ```bash
-   cd "week 4/web"
-   python3 -m http.server 8000
-   ```
-4. In the **Ports** tab, open port **8000** in the browser.
-
-### API endpoints
-
-| Endpoint | What it does |
-|---|---|
-| `/api/state` | Get the current system |
-| `/api/safety` | Run Banker's Algorithm (uses the IPC) |
-| `/api/detection` | Detect deadlock |
-| `/api/request` | Send a resource request |
-| `/api/recovery/terminate` | Terminate a process |
-| `/api/reset` | Reset the system |
-
-## GTK window version
-
-Setup (GitHub Codespaces):
+## Run the C program (Linux or WSL)
 ```bash
-sudo apt update
-sudo apt install -y build-essential pkg-config libgtk-3-dev
-```
-Add the desktop-lite feature in `.devcontainer/devcontainer.json`, then rebuild the container. Open port 6080 in the browser to see the GTK window.
-
-Build and run:
-```bash
+cd "week 5"
 make
-./deadlock_sim
+./sim
 ```
-Clean old files with `make clean`.
+The program asks for the input, runs all three algorithms, and prints the results:
 
-## How to use
+1. `Enter the page-reference string:` type numbers with spaces, for example `7 0 1 2 0 3 0 4 2 3`
+2. `Enter the number of page frames:` type a number from 1 to 10
 
-1. **Setup:** enter the number of processes and resource types. Click Create, or load a sample.
-2. **Matrices:** fill in Allocation and Maximum. Need and Available are calculated for you.
-3. **Graph:** see who holds and who waits. Deadlocked processes are red.
-4. **Request:** pick a process and ask for resources. Choose Banker's Avoidance to check first.
-5. **Banker:** run the safety check and see the safe sequence.
-6. **Detect:** find the deadlocked processes.
-7. **Recover:** end a process to break the deadlock.
-8. **Status:** see SAFE, UNSAFE or DEADLOCKED, and resource use.
+Wrong input (letters, an empty line, 0 frames, more than 10 frames) shows an error message and stops.
 
-## Test cases
+## Run the website
+1. Install Emscripten, then in `week 5` run: `make wasm` (this creates `web/sim.js` and `web/sim.wasm`)
+2. In `week 5/web` run: `python3 -m http.server`
+3. Open http://localhost:8000
 
-- **Safe:** 5 processes, 3 resources, total `10 5 7`. Safe sequence is `P1, P3, P4, P0, P2`.
-- **Deadlock:** 3 processes, 3 resources, total `1 1 1`, circular wait.
+The website runs in the browser, so it calls the algorithms directly. The pipe version is the C program (`./sim`).
 
-## Weekly IPC list
+## IPC: pipes with fork()
 
-| Week | IPC technique |
-|---|---|
-| 2 | POSIX Message Queues |
-| 3 | Pipe + fork() |
-| 4 | Named Pipes (FIFO) |
-| 5 | Pipes + fork() |
+```text
+                    ┌── fork() ──► Child 1: FIFO     ──┐
+                    │                                   │ pipe 1
+ Parent (main.c) ───┼── fork() ──► Child 2: LRU      ──┤ pipe 2   (each child writes its
+   reads input      │                                   │ pipe 3    Result struct, parent reads)
+   prints results   └── fork() ──► Child 3: Optimal  ──┘
+```
+
+1. The parent reads the reference string and the number of frames.
+2. For each algorithm it creates a pipe and calls `fork()`.
+3. Each child closes the read end, runs its algorithm, writes the whole `Result` struct into its pipe, and exits.
+4. The parent closes the write ends, reads the three `Result` structs (`read_all` loops until the whole struct arrives), and calls `waitpid()` for each child.
+5. The parent prints the step tables and the comparison.
+
+Why pipes: the parent and children are related processes, the data flows one way (child to parent), and the three algorithms run at the same time without sharing memory.
+
+## Test
+Reference string `7 0 1 2 0 3 0 4 2 3`, 3 frames:
+
+| Algorithm | Hits | Faults | Fault ratio |
+|---|---|---|---|
+| FIFO | 1 | 9 | 90.0% |
+| LRU | 2 | 8 | 80.0% |
+| Optimal | 4 | 6 | 60.0% |
+
+Fewest faults: Optimal. Bad input (letters, empty line, 0 frames, more than 10 frames) shows an error message and stops.
