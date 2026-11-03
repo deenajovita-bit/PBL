@@ -1,6 +1,6 @@
 # Performance analysis (Week 2)
 
-Numbers below are from one test machine. Run `bash run_bench.sh` on your own machine (Codespaces) and put your own numbers in this file. The pattern should be the same.
+Numbers below are from the GitHub Codespaces run (`results.md`).
 
 ## What was compared
 - **Standalone:** the real simulator code, called directly inside one process. No socket, no shared memory, no semaphores, no Logger process.
@@ -10,12 +10,12 @@ Numbers below are from one test machine. Run `bash run_bench.sh` on your own mac
 ## Results
 | Metric | Standalone | Multi-process |
 |---|---|---|
-| Time per command (average) | 0.22 us | 7.77 us |
-| Total time, 100,000 commands | 27 ms | 784 ms |
-| Total CPU time | 37 ms | 779 ms |
-| Peak memory (all processes) | about 3.1 MB | about 7.0 MB |
+| Time per command (average) | 0.95 us | 38.71 us |
+| Total time, 100,000 commands | 100 ms | 3,882 ms |
+| Total CPU time | 111 ms | 4,248 ms |
+| Peak memory (all processes) | about 2.9 MB | about 7.0 MB |
 
-IPC overhead: about 7.5 us per command, so the multi-process version is about 35 times slower per command.
+IPC overhead: about 37.8 us per command, so the multi-process version is about 41 times slower per command. In Codespaces the processes share 2 virtual CPUs, so the switches between processes cost more than on a normal computer.
 
 ## Why it is slower
 Every command in the multi-process version pays for:
@@ -29,7 +29,7 @@ In the standalone version a command is just a function call, so it takes less th
 - The three parts are separate programs. One part can be changed or restarted without touching the others.
 - If the Logger is slow, Core only writes to the pipe and does not wait for the log file.
 - Each part has a clear interface and owner, which is how larger systems are built.
-- 7.5 us per command is far below what a person can type, so the user sees no delay.
+- 38 us per command is far below what a person can type (a keystroke takes about 100,000 us), so the user sees no delay.
 - Memory is about 2 times higher because each process has its own stack and libraries.
 
 ## Which IPC costs what
