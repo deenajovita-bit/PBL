@@ -60,7 +60,34 @@ cd core && ./core       # terminal 1 (starts the Logger by itself)
 cd UI   && ./ui         # terminal 2
 ```
 
-Start Core first. Do not run the Logger by hand. Commands: `LOAD`, `ADD`, `SUB`, `PUSH`, `POP`, `STORE`, `LOADM`, `PRINT`, `SHOW CPU`, `SHOW MEMORY`, `SHOW STACK`, `SHOW QUEUE`, `STATE`, `EXIT`.
+Start Core first. Do not run the Logger by hand.
+
+## UI menu
+
+The UI is menu driven. Type a number. For LOAD, ADD, SUB, PUSH, STORE and LOADM it then asks for the value or the memory address.
+
+```text
+ 1. LOAD     - Load a value into ACC
+ 2. ADD      - Add a value to ACC
+ 3. SUB      - Subtract a value from ACC
+ 4. PUSH     - Push a value onto the stack
+ 5. POP      - Pop a value into ACC
+ 6. STORE    - Store ACC in a memory address
+ 7. LOADM    - Load a memory address into ACC
+ 8. PRINT    - Print ACC
+ 9. Show CPU
+10. Show memory
+11. Show stack
+12. Show instruction queue
+13. Live state (read from shared memory)
+ 0. Exit simulator
+```
+
+You can also type a command, for example `ADD 5` or `show cpu` (upper or lower case). Menu 13 (`STATE`) does not send a message to Core. It reads the shared memory directly, inside the semaphore lock.
+
+Example: type `1`, then `10` (LOAD 10), then `2`, then `5` (ADD 5), then `13`. The live state shows ACC = 15.
+
+Wrong input (a letter instead of a number, a menu number above 13, a bad command) shows a message and returns to the menu.
 
 ## IPC test cases
 
