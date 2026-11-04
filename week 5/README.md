@@ -36,9 +36,8 @@ The program asks for the input, runs all three algorithms, and prints the result
 Wrong input (letters, an empty line, 0 frames, more than 10 frames) shows an error message and stops.
 
 ## Run the website
-1. Install Emscripten, then in `week 5` run: `make wasm` (this creates `web/sim.js` and `web/sim.wasm`)
-2. In `week 5/web` run: `python3 -m http.server`
-3. Open http://localhost:8000
+cd web
+python3 -m http.server 8000
 
 The website runs in the browser, so it calls the algorithms directly. The pipe version is the C program (`./sim`).
 
